@@ -1,0 +1,12 @@
+
+cau-hinh/nginx/certs/*.key
+cau-hinh/nginx/certs/*.csr
+cau-hinh/nginx/certs/*.srl
+cau-hinh/nginx/certs/*.ext
+cau-hinh/nginx/certs/*.crt
+
+.DS_Store
+dist/
+__pycache__/
+*.py[cod]
+.pytest_cache/

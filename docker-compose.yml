@@ -1,0 +1,65 @@
+
+# Khung chính của hệ thống Chủ đề A: nginx (cổng vào, TLS/mTLS) -> web (ứng dụng) -> db (PostgreSQL).
+# Đường dẫn dưới đây khớp với cấu trúc repo thật: cau-hinh/ (cấu hình) và ma-nguon/ (mã nguồn).
+# Trọng, Chi, Hảo: tạo đúng các file/thư mục được tham chiếu dưới đây trong PR của mình.
+
+services:
+  nginx:
+    build: ./cau-hinh/nginx     # Trọng: tạo file ./cau-hinh/nginx/Dockerfile tại đây
+    ports:
+      - "443:443"               # HTTPS công khai
+      - "80:80"                  # chỉ dùng để redirect sang 443, không phục vụ nội dung
+    volumes:
+      - ./cau-hinh/nginx/certs:/etc/nginx/certs:ro   # Trọng: certificate + key TLS/mTLS (dùng cho CI/dev)
+    depends_on:
+      - web
+    networks:
+      - internal
+
+  web:
+    build: ./ma-nguon/web        # Chi: tạo file ./ma-nguon/web/Dockerfile + mã nguồn tại đây
+    environment:
+      # Chi: dùng đúng vai trò riêng (không phải vai trò chủ sở hữu DB) mà Hảo tạo trong init script
+      - DATABASE_URL=postgresql://app_user:changeme_app_pw@db:5432/appdb
+      - APP_DEPARTMENT_ID=1
+      - PGSSLMODE=verify-full
+      - PGSSLROOTCERT=/etc/postgresql/certs/ca.crt
+    volumes:
+      - ./cau-hinh/nginx/certs/ca.crt:/etc/postgresql/certs/ca.crt:ro
+    depends_on:
+      - db
+    networks:
+      - internal
+    # Không mở port ra ngoài (expose/ports) — web app chỉ nhận request từ nginx qua network nội bộ
+
+  db:
+    build: ./cau-hinh/db
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - shared_preload_libraries=pgaudit
+      - -c
+      - pgaudit.log=ddl,role
+    environment:
+      - POSTGRES_DB=appdb
+      - POSTGRES_USER=postgres           # vai trò chủ sở hữu, chỉ dùng để khởi tạo
+      - POSTGRES_PASSWORD=changeme_owner_pw
+    volumes:
+      - ./cau-hinh/db:/docker-entrypoint-initdb.d:ro   # Hảo: để script .sql khởi tạo schema + tạo app_user tại đây
+      - ./cau-hinh/db/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./cau-hinh/nginx/certs/ca.crt:/etc/postgresql/certs/ca.crt:ro
+      - ./cau-hinh/nginx/certs/postgres.crt:/etc/postgresql/certs/postgres.crt:ro
+      - ./cau-hinh/nginx/certs/postgres.key:/etc/postgresql/certs/postgres.key:ro
+      - ./cau-hinh/db/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  db_data:

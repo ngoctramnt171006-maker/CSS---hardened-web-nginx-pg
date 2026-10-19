@@ -1,0 +1,146 @@
+name: CI - dựng hệ thống M2
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compose-up:
+    name: Dựng và kiểm tra ba container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Tạo chứng chỉ TLS dùng riêng cho CI
+        run: sh scripts/generate-dev-certs.sh
+
+      - name: Dựng và khởi động hệ thống
+        run: docker compose up --build -d
+
+      - name: Xác nhận nginx, web và db đang chạy
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(printf 'db\nnginx\nweb')
+
+          for attempt in {1..30}; do
+            running=$(docker compose ps --services --status running | sort)
+            if [[ "$running" == "$expected" ]]; then
+              echo "Cả ba service nginx, web và db đang chạy."
+              exit 0
+            fi
+
+            exited=$(docker compose ps --all --services --status exited)
+            if [[ -n "$exited" ]]; then
+              echo "::error::Container đã thoát: $exited"
+              docker compose ps --all
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          echo "::error::Không phải cả ba service nginx, web và db đều chạy."
+          docker compose ps --all
+          exit 1
+
+      - name: Xác nhận web app phản hồi qua nginx (/health)
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=""
+          for attempt in {1..15}; do
+            status=$(curl -k -s -o /dev/null -w "%{http_code}" https://localhost/health || echo "000")
+            if [[ "$status" == "200" ]]; then
+              echo "PASS: /health -> HTTP 200"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "::error::/health không trả về 200 sau nhiều lần thử (status cuối: ${status})"
+          docker compose logs --no-color web nginx
+          exit 1
+
+      - name: Tạo SBOM CycloneDX cho các image
+        shell: bash
+        env:
+          SBOM_SERVICES: web nginx db
+          SYFT_IMAGE: anchore/syft:v1.54.1@sha256:3eb5379ba7b409c3f4069b686110527af0c47df993fa5c10d13e7cf34f49b1aa
+        run: |
+          set -euo pipefail
+          # Xóa SBOM/chữ ký có sẵn trong checkout để chỉ ký các file tạo trong run này.
+          mkdir -p bang-chung/sbom
+          rm -f bang-chung/sbom/*.cdx.json bang-chung/sbom/*.sigstore.json
+          temp_dir=$(mktemp -d .syft.XXXXXX)
+          trap 'rm -rf "$temp_dir"' EXIT
+
+          for service in $SBOM_SERVICES; do
+            image_id=$(docker compose images --quiet "$service" | head -n 1)
+            if [[ -z "$image_id" ]]; then
+              echo "::error::Không tìm thấy image của service $service."
+              exit 1
+            fi
+
+            archive="$temp_dir/$service.tar"
+            output="bang-chung/sbom/$service.cdx.json"
+            docker save --output "$archive" "$image_id"
+            docker run --rm \
+              --volume "$PWD:/src" \
+              "$SYFT_IMAGE" \
+              "docker-archive:/src/$archive" \
+              -o "cyclonedx-json=/src/$output"
+            jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' "$output" >/dev/null
+          done
+
+      - name: Cài Cosign
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+
+      - name: Ký và xác minh SBOM bằng Cosign (keyless)
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        shell: bash
+        env:
+          SBOM_SERVICES: web nginx db
+        run: |
+          set -euo pipefail
+          identity="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/ci.yml@${GITHUB_REF}"
+
+          for service in $SBOM_SERVICES; do
+            sbom="bang-chung/sbom/$service.cdx.json"
+            test -s "$sbom"
+            bundle="${sbom}.sigstore.json"
+            cosign sign-blob --yes --bundle "$bundle" "$sbom"
+            cosign verify-blob \
+              --bundle "$bundle" \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              "$sbom"
+          done
+
+      - name: Tải SBOM và chữ ký làm artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.run_id }}-${{ github.run_attempt }}
+          path: bang-chung/sbom/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Hiển thị log khi thất bại
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Dọn các container
+        if: always()
+        run: docker compose down --remove-orphans

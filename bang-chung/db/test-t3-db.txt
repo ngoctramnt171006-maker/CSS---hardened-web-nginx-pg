@@ -1,0 +1,7 @@
+      DATABASE TLS TESTS (T3)
+
+PASS: PostgreSQL SSL is enabled
+PASS: non-TLS PostgreSQL connection was rejected
+PASS: web connects to PostgreSQL using TLS
+
+ALL T3 DATABASE TLS TESTS PASSED

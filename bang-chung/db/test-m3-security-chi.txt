@@ -1,0 +1,19 @@
+M3 SECURITY INTEGRATION PYTESTS - CHI
+UTC: 2026-10-08T09:13:47Z
+Branch: feature/m3-t1-t5-tests
+Base commit: dc7e9de
+
+TEST CASES:
+56:def test_t1_01_policy_exists_and_rls_is_forced():
+86:def test_t1_02_no_department_context_sees_no_documents():
+106:def test_t1_03_department_one_sees_only_its_documents():
+158:def test_t1_04_cross_department_insert_is_rejected():
+197:def test_t5_01_pgaudit_is_loaded_and_configured():
+228:def test_t5_02_app_user_cannot_create_table():
+254:def test_t5_03_pgaudit_records_current_create_and_drop():
+291:def test_t5_04_pgaudit_records_current_alter_role():
+
+      M3 SECURITY INTEGRATION PYTESTS - CHI
+
+........                                                                 [100%]
+8 passed in 5.82s

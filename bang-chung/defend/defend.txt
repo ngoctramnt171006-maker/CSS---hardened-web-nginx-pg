@@ -1,0 +1,18 @@
+DEFENSE STATE (nhom TH-True-Milk)
+Thoi diem (UTC): 2026-10-09T18:23:10Z
+
+[T1] RLS
+PASS: app.documents RLS enable+force = t
+PASS: app_user bypassrls = f
+PASS: app_user superuser = f
+[T2] nginx
+PASS: nginx ssl_protocols = ssl_protocols TLSv1.2 TLSv1.3
+[T3] PostgreSQL TLS
+PASS: ssl = on
+PASS: pg_hba: dong hostssl scram = 1
+PASS: pg_hba: dong host reject (khong TLS) = 2
+[T5] pgaudit
+PASS: pgaudit.log = ddl,role
+PASS: pgaudit nap san = 1
+
+DEFEND RESULT: moi bien phap dang ap dung

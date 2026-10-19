@@ -1,0 +1,128 @@
+{
+  "loai_tai_lieu": "MO_HINH_DE_DOA",
+  "boi_canh": "Doanh nghiệp vừa và nhỏ tại Việt Nam, vận hành hệ thống nội bộ trên ba máy chủ container, phục vụ khoảng 200 người dùng, không có đội an toàn thông tin riêng, ngân sách công cụ dưới 30 triệu đồng một năm. Nhóm được thuê dựng và bàn giao cấu hình an toàn cho hệ thống này, kèm bằng chứng kiểm chứng được và phân tích chi phí. Hệ thống gồm nginx làm cổng vào có TLS và mTLS cho đường quản trị, một ứng dụng web nhỏ, và PostgreSQL.",
+  "he_thong": "nginx -> web app -> PostgreSQL",
+  "tai_san_can_bao_ve": [
+    "Các dữ liệu quan trọng trong PostgreSQL (thông tin xác thực, dữ liệu các phòng ban)",
+    "Đường quản trị /admin của nginx",
+    "Khóa riêng (private keys) và chứng chỉ phục vụ TLS/mTLS"
+  ],
+  "thang_diem_chu_giai": {
+    "tac_dong_1_5": {
+      "1": "Rất nhẹ - hầu như không ảnh hưởng đến dữ liệu hoặc vận hành",
+      "2": "Nhẹ - ảnh hưởng cục bộ, dễ khắc phục, không lộ dữ liệu nhạy cảm",
+      "3": "Trung bình - ảnh hưởng một phần dữ liệu hoặc dịch vụ, cần khắc phục trong ngày",
+      "4": "Nặng - lộ hoặc mất dữ liệu nhạy cảm ở phạm vi hẹp (một thành phần/một phòng ban)",
+      "5": "Nghiêm trọng - lộ dữ liệu nhạy cảm ở phạm vi rộng hoặc có thể dẫn tới chiếm quyền hệ thống"
+    },
+    "kha_nang_xay_ra_1_5": {
+      "1": "Hiếm - cần điều kiện đặc biệt, gần như không thể xảy ra trong bối cảnh hiện tại",
+      "2": "Thấp - cần nhiều bước chuẩn bị hoặc quyền truy cập hiếm có",
+      "3": "Trung bình - cần một điều kiện tiên quyết cụ thể (ví dụ: đã chiếm 1 thiết bị trong mạng)",
+      "4": "Cao - tác nhân đã có sẵn điều kiện cần thiết (tài khoản hợp lệ, hoặc lỗ hổng mặc định chưa vá)",
+      "5": "Rất cao - không cần điều kiện gì thêm, có thể khai thác ngay lập tức"
+    }
+  },
+  "ranh_gioi_tin_cay": [
+    {
+      "id": "RG1",
+      "ten": "Internet/mạng ngoài <-> nginx",
+      "mo_ta": "Người dùng ngoài mạng nội bộ chỉ chạm được cổng 443 của nginx, chưa được xác thực"
+    },
+    {
+      "id": "RG2",
+      "ten": "Người dùng thường <-> đường /admin",
+      "mo_ta": "Đường /admin yêu cầu mTLS, tách biệt khỏi luồng người dùng thường dù cùng đi qua nginx"
+    },
+    {
+      "id": "RG3",
+      "ten": "nginx <-> web app",
+      "mo_ta": "nginx là reverse proxy, web app chỉ nhận traffic đã qua nginx, không expose trực tiếp ra ngoài"
+    },
+    {
+      "id": "RG4",
+      "ten": "web app <-> PostgreSQL",
+      "mo_ta": "Web app kết nối DB bằng vai trò ứng dụng (không phải chủ sở hữu), ranh giới này là nơi Row Level Security có tác dụng"
+    }
+  ],
+  "moi_de_doa": [
+    {
+      "id": "T1",
+      "stride": "E",
+      "mo_ta": "Nhân viên phòng ban A dùng tài khoản hợp lệ đọc được dữ liệu của phòng ban B do ứng dụng/CSDL không chặn theo vai trò",
+      "tac_nhan": "Nhân viên nội bộ có tài khoản hợp lệ, muốn vượt phạm vi được cấp",
+      "nang_luc": "Có tài khoản đăng nhập hợp lệ, biết cấu trúc ứng dụng/API, gửi truy vấn tới dữ liệu phòng ban khác khi tầng ứng dụng/CSDL không chặn theo vai trò",
+      "dong_co": "Tò mò hoặc trục lợi từ dữ liệu phòng ban khác",
+      "nguyen_ly": "Đặc quyền tối thiểu",
+      "bien_phap_cu_the": "Row Level Security theo policy dựa trên tham số phiên (phòng ban), bật FORCE ROW LEVEL SECURITY để áp cả lên chủ sở hữu bảng",
+      "ma_ATTCK": "T1078",
+      "tac_dong_1_5": 5,
+      "kha_nang_xay_ra_1_5": 4,
+      "diem_uu_tien": 20
+    },
+    {
+      "id": "T2",
+      "stride": "I",
+      "mo_ta": "Kẻ tấn công trên cùng phân đoạn mạng bắt gói tin đọc được nội dung truyền tới nginx khi kết nối chưa mã hóa; đoạn kết nối riêng giữa web app và PostgreSQL được mã hóa và kiểm chứng riêng ở T3",
+      "tac_nhan": "Thiết bị trong cùng mạng LAN nội bộ đã bị chiếm quyền, hoặc nhân viên có quyền truy cập hạ tầng mạng",
+      "nang_luc": "Đặt được công cụ bắt gói tin trên cùng phân đoạn mạng, đọc được traffic dạng cleartext nếu TLS chưa bật hoặc cấu hình yếu",
+      "dong_co": "Thu thập thông tin đăng nhập hoặc dữ liệu nhạy cảm truyền qua mạng nội bộ",
+      "nguyen_ly": "Bảo vệ dữ liệu khi truyền",
+      "bien_phap_cu_the": "TLS 1.2/1.3 bắt buộc toàn bộ tại nginx, kiểm bằng testssl; mTLS riêng cho /admin. Đoạn web app <-> PostgreSQL không nằm trong phạm vi bằng chứng testssl, được xử lý riêng ở T3",
+      "ma_ATTCK": "T1040",
+      "tac_dong_1_5": 5,
+      "kha_nang_xay_ra_1_5": 3,
+      "diem_uu_tien": 15
+    },
+    {
+      "id": "T3",
+      "stride": "T",
+      "mo_ta": "Kẻ tấn công đã có vị trí trung gian trên đường truyền app-DB lợi dụng cấu hình mặc định của PostgreSQL cho phép kết nối không mã hóa để chèn hoặc sửa câu lệnh truyền đi, do không có xác thực kênh truyền",
+      "tac_nhan": "Tác nhân đã chiếm được vị trí trung gian trong mạng nội bộ (máy chủ hoặc thiết bị mạng bị xâm nhập)",
+      "nang_luc": "Chặn và sửa được gói tin giữa web app và PostgreSQL khi kênh truyền không mã hóa và không xác thực hai chiều",
+      "dong_co": "Thay đổi câu lệnh hoặc kết quả truy vấn để gây sai lệch dữ liệu hoặc chiếm quyền",
+      "nguyen_ly": "Mã hóa và xác thực kênh truyền tầng dữ liệu",
+      "bien_phap_cu_the": "Ép hostssl trong pg_hba.conf để chỉ chấp nhận kết nối đã qua TLS, kết hợp bật ssl = on trong postgresql.conf để server có khả năng phục vụ kết nối mã hóa ngay từ đầu - hai thiết lập nằm ở hai file khác nhau nhưng phải đi cùng nhau mới có tác dụng. Web kết nối với PGSSLMODE=verify-full để xác minh chứng chỉ máy chủ, tài khoản app_user xác thực bằng scram-sha-256; chứng chỉ khách cho DB không triển khai (hướng mở rộng)",
+      "ma_ATTCK": "T1557",
+      "tac_dong_1_5": 4,
+      "kha_nang_xay_ra_1_5": 3,
+      "diem_uu_tien": 12
+    },
+    {
+      "id": "T4",
+      "stride": "S",
+      "mo_ta": "Khóa riêng hoặc chứng chỉ client dùng cho mTLS bị đánh cắp, kẻ tấn công giả mạo client hợp lệ để truy cập đường /admin",
+      "tac_nhan": "Người có quyền truy cập máy trạm quản trị hoặc kho lưu khóa, hoặc kẻ tấn công đã xâm nhập máy đó",
+      "nang_luc": "Lấy được tệp khóa riêng và chứng chỉ client nếu không bảo vệ quyền truy cập tệp hoặc không mã hóa khóa khi lưu trữ",
+      "dong_co": "Mạo danh quản trị viên để truy cập đường quản trị có đặc quyền cao",
+      "nguyen_ly": "Bảo vệ vật liệu khóa và xác thực mạnh cho đường đặc quyền cao",
+      "bien_phap_cu_the": "Nhận diện mối đe dọa; hiện chỉ có không commit khóa vào git (.gitignore) và chmod 600, chưa có ca kiểm. Kế hoạch thu hồi chứng chỉ khi nghi lộ chưa triển khai (hướng mở rộng)",
+      "ma_ATTCK": "T1552.004",
+      "tac_dong_1_5": 5,
+      "kha_nang_xay_ra_1_5": 2,
+      "diem_uu_tien": 10
+    },
+    {
+      "id": "T5",
+      "stride": "R",
+      "mo_ta": "Thao tác đổi vai trò hoặc thay đổi cấu trúc dữ liệu (DDL) không được ghi log đầy đủ, khiến không truy vết được ai đã thực hiện khi có sự cố",
+      "tac_nhan": "Người có quyền quản trị CSDL, hành động cố ý hoặc vô ý không để lại dấu vết",
+      "nang_luc": "Thực hiện thao tác DDL hoặc đổi vai trò mà không bị ghi nhận nếu audit log chưa bật",
+      "dong_co": "Che giấu hành vi vượt quyền hoặc tránh trách nhiệm khi có sự cố",
+      "nguyen_ly": "Ghi nhận và không thể chối bỏ hành vi (non-repudiation)",
+      "bien_phap_cu_the": "Bật pgaudit ghi nhận mọi thao tác DDL và ALTER ROLE, log xuất vào bang-chung/db/ kèm sha256",
+      "ma_ATTCK": "T1070",
+      "tac_dong_1_5": 3,
+      "kha_nang_xay_ra_1_5": 2,
+      "diem_uu_tien": 6
+    }
+  ],
+  "moi_uu_tien_xu_ly": [
+    "T1",
+    "T2",
+    "T3",
+    "T4",
+    "T5"
+  ],
+  "dieu_con_lai_neu_lop_ngoai_vo": "Nếu lớp phòng thủ ngoài cùng tại nginx bị vượt qua, việc có quyền truy cập mạng không đồng nghĩa với việc đọc hoặc sửa được toàn bộ dữ liệu. Row Level Security tại PostgreSQL vẫn là lớp độc lập thứ hai, giới hạn dữ liệu theo phạm vi phòng ban bất kể tài khoản đó đã vượt qua nginx bằng cách nào, nên tài khoản phòng ban A vẫn không đọc được dữ liệu phòng ban B. Đồng thời kết nối giữa web app và PostgreSQL vẫn buộc mã hóa qua ssl = on (postgresql.conf) và hostssl (pg_hba.conf), nên kẻ tấn công ở vị trí trung gian trên đường truyền nội bộ cũng không đọc hoặc sửa được nội dung truyền đi. Hai lớp này độc lập với nhau về cơ chế kiểm soát, nên một lớp sụp đổ không kéo theo lớp còn lại mất tác dụng."
+}

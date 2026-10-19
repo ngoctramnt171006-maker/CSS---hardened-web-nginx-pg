@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+CERT_DIR="/etc/postgresql/certs"
+KEY_SRC="$CERT_DIR/postgres.key"
+KEY_DST="/var/lib/postgresql/postgres.key"
+
+if [ ! -f "$KEY_SRC" ]; then
+    echo "ERROR: PostgreSQL private key not found: $KEY_SRC" >&2
+    exit 1
+fi
+
+rm -f "$KEY_DST"
+cp "$KEY_SRC" "$KEY_DST"
+chown postgres:postgres "$KEY_DST"
+chmod 600 "$KEY_DST"
+
+exec /usr/local/bin/docker-entrypoint.sh "$@"

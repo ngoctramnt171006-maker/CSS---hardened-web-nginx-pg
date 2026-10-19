@@ -1,0 +1,16 @@
+ATTACK PROBES (nhom TH-True-Milk)
+Thoi diem (UTC): 2026-10-10T04:07:08Z
+
+[T2] Nghe len: ket noi HTTP khong ma hoa
+BLOCKED: HTTP :80 khong phuc vu noi dung, chuyen 301 sang https://localhost/
+[T2] Truy cap /admin khong co chung chi khach (mTLS)
+BLOCKED: /admin khong chung chi -> HTTP 403
+[T1] Phong ban nay doc du lieu phong ban khac (bo qua loc o tang web)
+BLOCKED: phong 1 doc tai lieu phong khac -> 0 dong (RLS)
+BLOCKED: phong 1 ghi vao phong 2 bi RLS chan (new row violates row-level security policy)
+[T3] Ket noi DB khong ma hoa bang tai khoan ung dung
+BLOCKED: ket noi DB khong TLS bi pg_hba tu choi (pg_hba.conf rejects connection)
+[T5] Tai khoan ung dung tao/sua doi tuong (DDL) va doi quyen
+BLOCKED: app_user tao bang bi tu choi (permission denied)
+
+ATTACK RESULT: moi tan cong bi chan
