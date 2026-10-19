@@ -1,0 +1,12 @@
+BEGIN
+ set_config
+------------
+ 1
+(1 row)
+
+ department_id | count
+---------------+-------
+             1 |     2
+(1 row)
+
+COMMIT

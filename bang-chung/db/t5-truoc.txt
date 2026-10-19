@@ -1,0 +1,6 @@
+--- shared_preload_libraries:
+
+CREATE TABLE
+ALTER ROLE
+--- so dong AUDIT trong log:
+0

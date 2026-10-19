@@ -1,0 +1,9 @@
+       policyname        |   roles    | cmd
+-------------------------+------------+-----
+ documents_by_department | {app_user} | ALL
+(1 row)
+
+ relrowsecurity | relforcerowsecurity
+----------------+---------------------
+ t              | t
+(1 row)
