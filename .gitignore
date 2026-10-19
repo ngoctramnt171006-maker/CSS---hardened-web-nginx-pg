@@ -7,3 +7,6 @@ cau-hinh/nginx/certs/*.crt
 
 .DS_Store
 dist/
+__pycache__/
+*.py[cod]
+.pytest_cache/
